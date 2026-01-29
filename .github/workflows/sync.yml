@@ -1,36 +1,32 @@
-
-name: Deploy Web UI
+name: StravAI Headless Sync
 
 on:
-  push:
-    branches: ["main"]
+  schedule:
+    - cron: '0 * * * *'
   workflow_dispatch:
 
-permissions:
-  contents: read
-  pages: write
-  id-token: write
-
-concurrency:
-  group: "pages"
-  cancel-in-progress: false
-
 jobs:
-  deploy:
-    environment:
-      name: github-pages
-      url: ${{ steps: deployment.outputs.page_url }}
+  sync-job:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
+      - name: Checkout Repository
         uses: actions/checkout@v4
-      - name: Setup Pages
-        uses: actions/configure-pages@v4
-      - name: Upload artifact
-        uses: actions/upload-pages-artifact@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
-          # Upload the entire repository (static files)
-          path: '.'
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
+          node-version: '20'
+
+      - name: Install Dependencies
+        run: npm install
+
+      - name: Run StravAI Sync
+        run: npm run sync
+        env:
+          API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          STRAVA_CLIENT_ID: ${{ secrets.STRAVA_CLIENT_ID }}
+          STRAVA_CLIENT_SECRET: ${{ secrets.STRAVA_CLIENT_SECRET }}
+          STRAVA_REFRESH_TOKEN: ${{ secrets.STRAVA_REFRESH_TOKEN }}
+          GOAL_RACE_TYPE: ${{ secrets.GOAL_RACE_TYPE }}
+          GOAL_RACE_DATE: ${{ secrets.GOAL_RACE_DATE }}
+          GOAL_RACE_TIME: ${{ secrets.GOAL_RACE_TIME }}
