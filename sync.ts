@@ -1,12 +1,10 @@
 
 import { StravaService } from './services/stravaService';
-import { GeminiCoachService } from './services/geminiService';
+import { GeminiCoachService, QuotaExhaustedError } from './services/geminiService';
 import { GoalSettings } from './types';
 
-const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
-
 async function runSync() {
-  console.log("--- Starting StravAI Coaching Sync ---");
+  console.log("--- Starting StravAI Surgical Sync ---");
   
   const goals: GoalSettings = {
     raceType: process.env.GOAL_RACE_TYPE || "Marathon",
@@ -19,50 +17,50 @@ async function runSync() {
 
   try {
     await strava.refreshAuth();
-
     console.log(`Target Goal: ${goals.raceType} | Date: ${goals.raceDate}`);
-    console.log("Building athlete baseline (fetching last 50 activities)...");
     
-    const allRecent = await strava.getHistoryForBaseline(50);
-    const runs = allRecent.filter(a => a.type === 'Run');
+    console.log("Fetching athlete history for baseline context...");
+    const history = await strava.getHistoryForBaseline(50);
+    const runs = history.filter(a => a.type === 'Run');
 
     if (runs.length === 0) {
-      console.log("No runs found in the last 50 activities.");
+      console.log("No runs found in history.");
       return;
     }
 
     const signature = "[StravAI-Processed]";
+    const activityToProcess = runs.find(a => !a.description?.includes(signature));
 
-    for (const activity of runs) {
-      if (activity.description?.includes(signature)) continue;
-
-      console.log(`Processing: "${activity.name}" (${new Date(activity.start_date).toLocaleDateString()})`);
-      
-      const contextHistory = runs.filter(a => a.id !== activity.id);
-      
-      try {
-        const analysis = await coach.analyzeActivity(activity, contextHistory, goals);
-        const formattedReport = coach.formatDescription(analysis);
-
-        const newDescription = activity.description 
-          ? `${activity.description}\n\n${formattedReport}`
-          : formattedReport;
-
-        await strava.updateActivity(activity.id, { description: newDescription });
-        console.log(`✅ AI Coach updated activity: ${activity.id}`);
-        
-        // Pause briefly between activities to avoid hitting rate limits
-        console.log("Cooling down for 3 seconds...");
-        await sleep(3000);
-      } catch (innerError: any) {
-        console.error(`Skipping activity ${activity.id} due to analysis error: ${innerError.message}`);
-        // Continue to next activity instead of crashing the whole sync
-      }
+    if (!activityToProcess) {
+      console.log("All recent activities are already analyzed. Nothing to do.");
+      return;
     }
 
-    console.log("--- Sync Complete ---");
+    console.log(`Target Found: "${activityToProcess.name}" (${new Date(activityToProcess.start_date).toLocaleDateString()})`);
+    const contextHistory = runs.filter(a => a.id !== activityToProcess.id);
+    
+    try {
+      console.log("Consulting Coach Gemini...");
+      const analysis = await coach.analyzeActivity(activityToProcess, contextHistory, goals);
+      const formattedReport = coach.formatDescription(analysis);
+
+      const newDescription = activityToProcess.description 
+        ? `${activityToProcess.description}\n\n${formattedReport}`
+        : formattedReport;
+
+      await strava.updateActivity(activityToProcess.id, { description: newDescription });
+      console.log(`✅ Success: Activity ${activityToProcess.id} updated with AI analysis.`);
+    } catch (innerError: any) {
+      if (innerError instanceof QuotaExhaustedError) {
+        console.error("STOPPING SYNC: Gemini Free Tier Quota Exhausted for today.");
+        process.exit(0); // Exit gracefully as this is a known limit
+      }
+      console.error(`Failed to analyze activity ${activityToProcess.id}: ${innerError.message}`);
+    }
+
+    console.log(`--- Sync Cycle Complete ---`);
   } catch (error) {
-    console.error("Sync Failure:", error);
+    console.error("Critical Sync Failure:", error);
     process.exit(1);
   }
 }
