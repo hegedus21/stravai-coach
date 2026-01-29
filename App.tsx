@@ -23,14 +23,14 @@ const App: React.FC = () => {
     goalTime: localStorage.getItem('goal_race_time') || '3:30:00'
   });
   
-  const [logs, setLogs] = useState<{ id: string; msg: string; type: 'info' | 'success' | 'error' | 'ai'; time: string }[]>([]);
+  const [logs, setLogs] = useState<{ id: string; msg: string; type: 'info' | 'success' | 'error' | 'ai' | 'warning'; time: string }[]>([]);
   const [stats, setStats] = useState({ checked: 0, updated: 0, lastRun: 'Never' });
   
   const logContainerRef = useRef<HTMLDivElement>(null);
   const stravaService = useMemo(() => new StravaService(), []);
   const coachService = useMemo(() => new GeminiCoachService(), []);
 
-  const addLog = useCallback((msg: string, type: 'info' | 'success' | 'error' | 'ai' = 'info') => {
+  const addLog = useCallback((msg: string, type: 'info' | 'success' | 'error' | 'ai' | 'warning' = 'info') => {
     const id = Math.random().toString(36).substr(2, 9);
     const time = new Date().toLocaleTimeString();
     setLogs(prev => [{ id, msg, type, time }, ...prev].slice(0, 100));
@@ -241,6 +241,7 @@ const App: React.FC = () => {
                     ${log.type === 'error' ? 'text-red-400' : ''}
                     ${log.type === 'ai' ? 'text-cyan-400' : ''}
                     ${log.type === 'info' ? 'text-slate-500' : ''}
+                    ${log.type === 'warning' ? 'text-amber-400' : ''}
                   `}>
                     <span className="text-slate-800 mr-2 select-none">$</span>
                     {log.msg}
@@ -282,7 +283,7 @@ const App: React.FC = () => {
                 <section className="space-y-3">
                   <h3 className="text-blue-400 font-bold uppercase text-xs tracking-widest">C. Manual Triggers</h3>
                   <p className="text-slate-300 text-xs leading-relaxed"><strong>In this UI:</strong> Click the "SYNC_NOW" button to immediately analyze your last run.</p>
-                  <p className="text-slate-300 text-xs leading-relaxed"><strong>In GitHub:</strong> Go to the "Actions" tab -> "StravAI Headless Sync" -> click "Run workflow". This forces a cloud cycle.</p>
+                  <p className="text-slate-300 text-xs leading-relaxed"><strong>In GitHub:</strong> Go to the "Actions" tab → "StravAI Headless Sync" → click "Run workflow". This forces a cloud cycle.</p>
                 </section>
 
                 <section className="space-y-3 p-4 bg-slate-950 rounded-lg border border-slate-800">
