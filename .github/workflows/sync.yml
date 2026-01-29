@@ -15,7 +15,8 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: '18'
+          node-version: '20'
+          cache: 'npm'
 
       - name: Install dependencies
         run: npm install
@@ -27,7 +28,6 @@ jobs:
           STRAVA_CLIENT_ID: ${{ secrets.STRAVA_CLIENT_ID }}
           STRAVA_CLIENT_SECRET: ${{ secrets.STRAVA_CLIENT_SECRET }}
           STRAVA_REFRESH_TOKEN: ${{ secrets.STRAVA_REFRESH_TOKEN }}
-          # User Goals
           GOAL_RACE_TYPE: ${{ secrets.GOAL_RACE_TYPE }}
           GOAL_RACE_DATE: ${{ secrets.GOAL_RACE_DATE }}
           GOAL_RACE_TIME: ${{ secrets.GOAL_RACE_TIME }}
