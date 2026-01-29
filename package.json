@@ -4,12 +4,13 @@
   "version": "1.0.0",
   "description": "Headless Strava AI Coaching Service",
   "main": "sync.ts",
+  "type": "module",
   "dependencies": {
     "@google/genai": "^1.38.0",
-    "typescript": "^5.0.0",
-    "ts-node": "^10.9.1"
+    "tsx": "^4.19.2",
+    "typescript": "^5.0.0"
   },
   "scripts": {
-    "sync": "ts-node sync.ts"
+    "sync": "npx tsx sync.ts"
   }
 }
