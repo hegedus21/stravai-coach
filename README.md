@@ -77,6 +77,8 @@ To stay within the free tier, the system only processes **one activity per run**
 - **Backend:** TypeScript, GitHub Actions (Headless Sync)
 - **Data:** Strava API v3
 
+## Idea by @hegedus21
+
 ---
 
 *Disclaimer: StravAI is an experimental tool. Always consult a medical professional before starting a new training intensity or program.*
