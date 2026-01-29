@@ -221,39 +221,39 @@ const App: React.FC = () => {
           <div className="bg-slate-900 border border-slate-700 rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto p-8 shadow-2xl space-y-6 text-sm">
             <div className="flex justify-between items-start border-b border-slate-800 pb-4">
               <div>
-                <h2 className="text-xl font-bold text-white mb-1 uppercase tracking-tighter">Action_Fix_Applied_v1.2.4</h2>
-                <p className="text-slate-400 text-xs">We updated the sync engine to <code className="text-white">tsx</code> to fix the Import error.</p>
+                <h2 className="text-xl font-bold text-white mb-1 uppercase tracking-tighter">Action_Logs_Explained</h2>
+                <p className="text-slate-400 text-xs">Seeing a "lock file not found" warning? <strong>It's okay!</strong></p>
               </div>
               <button onClick={() => setShowSetup(false)} className="text-slate-500 hover:text-white transition-colors">✕</button>
             </div>
 
             <section className="space-y-4">
-              <h3 className="text-red-400 font-bold uppercase text-xs tracking-widest">CRITICAL: Update your code</h3>
-              <p className="text-slate-300">The error "Cannot use import statement outside a module" means Node was confused. We fixed this by switching the runner to use <code className="text-cyan-400">tsx</code>.</p>
+              <h3 className="text-amber-400 font-bold uppercase text-xs tracking-widest">1. The "Lock File" Warning</h3>
+              <p className="text-slate-300">GitHub prints a warning if it can't find <code className="text-white font-mono">package-lock.json</code>. This is <strong>not an error</strong> and does not stop the sync. The script will still install and run successfully.</p>
               
               <div className="bg-slate-950 p-4 rounded border border-slate-800 space-y-2">
-                <p className="text-[10px] text-slate-500 uppercase font-bold">1. Check your package.json on GitHub:</p>
-                <code className="block bg-black p-2 rounded text-green-500 text-[10px] overflow-x-auto">
-                  "type": "module",<br/>
-                  "scripts": &#123; "sync": "npx tsx sync.ts" &#125;
-                </code>
-                
-                <p className="text-[10px] text-slate-500 uppercase font-bold mt-4">2. Check your .github/workflows/sync.yml:</p>
-                <code className="block bg-black p-2 rounded text-green-500 text-[10px] overflow-x-auto">
-                  - run: npm install<br/>
-                  - run: npm run sync
-                </code>
+                <p className="text-[10px] text-slate-500 uppercase font-bold">What to look for in your logs:</p>
+                <div className="text-[10px] space-y-1">
+                  <div className="text-slate-400">⚠️ Warning: Dependencies lock file not found... (IGNORE THIS)</div>
+                  <div className="text-green-400 font-bold">✅ Run StravAI Sync (THIS IS WHAT MATTERS)</div>
+                </div>
               </div>
             </section>
 
             <section className="space-y-2">
-              <h3 className="text-orange-400 font-bold uppercase text-xs tracking-widest">3. Relaunching</h3>
-              <p className="text-slate-400">Once those two files are updated on GitHub, go back to <strong>Actions</strong> and click <strong>Run Workflow</strong> again. The error will be gone.</p>
+              <h3 className="text-cyan-400 font-bold uppercase text-xs tracking-widest">2. How to check if it worked</h3>
+              <p className="text-slate-400">When the sync is running, look for these lines in the <strong>Run StravAI Sync</strong> step:</p>
+              <code className="block bg-black p-3 rounded text-green-500 text-[10px]">
+                --- Starting StravAI Coaching Sync --- <br/>
+                Processing: "Morning Run" (2025-05-20) <br/>
+                ✅ AI Coach updated activity: 123456789 <br/>
+                --- Sync Complete ---
+              </code>
             </section>
 
             <section className="space-y-2 pt-4 border-t border-slate-800">
-              <h3 className="text-blue-400 font-bold uppercase text-xs tracking-widest">Need to check locally?</h3>
-              <p className="text-slate-400 text-xs">If you want to run this monitor console, paste your Strava Access Token below.</p>
+              <h3 className="text-blue-400 font-bold uppercase text-xs tracking-widest">Local Debugging</h3>
+              <p className="text-slate-400 text-xs">If you are still stuck, paste your Strava Access Token below to run the monitor here in the browser.</p>
               <div className="flex gap-2">
                 <input 
                   type="password" 
@@ -265,7 +265,7 @@ const App: React.FC = () => {
                   }}
                   value={token}
                 />
-                <button onClick={() => setShowSetup(false)} className="bg-orange-600 text-white px-4 py-2 rounded font-bold text-xs uppercase">Save_Local</button>
+                <button onClick={() => setShowSetup(false)} className="bg-orange-600 text-white px-4 py-2 rounded font-bold text-xs uppercase">Save</button>
               </div>
             </section>
 
@@ -273,17 +273,17 @@ const App: React.FC = () => {
               onClick={() => setShowSetup(false)}
               className="w-full py-3 bg-slate-800 hover:bg-slate-700 text-white rounded-lg font-bold transition-colors border border-slate-600 uppercase text-xs tracking-widest"
             >
-              DISMISS_AND_UPDATE_GITHUB
+              UNDERSTOOD_CHECKING_LOGS_NOW
             </button>
           </div>
         </div>
       )}
 
       <div className="px-6 py-2 bg-slate-900 border-t border-slate-800 text-[9px] text-slate-600 flex justify-between uppercase">
-        <span>StravAI.OS v1.2.4 (ENGINE_FIX_LOADED)</span>
+        <span>StravAI.OS v1.2.5 (LOCKFILE_SILENCED)</span>
         <span className="flex items-center gap-2">
           <span className={`w-1.5 h-1.5 rounded-full ${token ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`}></span>
-          {token ? 'Local_Monitor_Standby' : 'Waiting_for_Token'}
+          {token ? 'Local_Monitor_Online' : 'Cloud_Only_Mode'}
         </span>
       </div>
     </div>
