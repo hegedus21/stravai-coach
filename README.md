@@ -8,7 +8,19 @@ StravAI is an automated performance analysis service that uses the Strava API an
 - **Deep Context:** Analyzes current performance against a baseline of up to 50 past activities.
 - **Next-Step Prescriptions:** Suggests specific workouts (intervals, tempo, recovery) based on your race goals.
 - **Dual Mode:** Runs as a headless cloud service (GitHub Actions) or as a live monitoring dashboard (Command Center).
-- **Circuit Breaker:** Automatically detects quota exhaustion and enters standby mode to prevent errors.
+- **Circuit Breaker:** Automatically detects quota exhaustion and enters standby mode.
+
+---
+
+## 💰 Is it Free? (Free Tier Breakdown)
+This service is designed to run at **zero cost** by utilizing the following free tiers:
+
+| Provider | Service | Free Limit | StravAI Usage |
+| :--- | :--- | :--- | :--- |
+| **Google** | Gemini AI | ~1,500 req/day (Flash) | **1 req** per run |
+| **Strava** | Developer API | 1,000 req/day | **~2-5 req** per hour |
+| **GitHub** | Actions | 2,000 min/mo (Private) | **~360 min** per month |
+| **GitHub** | Pages | Unlimited (Public) | **Static hosting** |
 
 ---
 
@@ -17,51 +29,39 @@ StravAI is an automated performance analysis service that uses the Strava API an
 ### 1. Strava API Configuration
 1. Go to your [Strava API Settings](https://www.strava.com/settings/api).
 2. Note your **Client ID** and **Client Secret**.
-3. Generate a **Refresh Token** with `activity:read_all` and `activity:write` scopes. 
-   *(Use a tool like the Strava OAuth helper or curl to exchange your authorization code for a refresh token).*
+3. Generate a **Refresh Token** with `activity:read_all` and `activity:write` scopes.
 
-### 2. Gemini API Configuration
-1. Obtain an API Key from the [Google AI Studio](https://aistudio.google.com/).
-2. This project uses `gemini-3-flash-preview` for high-speed, structured JSON analysis.
+### 2. GitHub Automation (Headless Mode)
+This runs the "Engine" in the cloud every hour:
+1. Go to **Settings > Secrets and variables > Actions**.
+2. Add the following **Secrets**:
+   - `GEMINI_API_KEY`, `STRAVA_CLIENT_ID`, `STRAVA_CLIENT_SECRET`, `STRAVA_REFRESH_TOKEN`.
+   - Optional: `GOAL_RACE_TYPE`, `GOAL_RACE_DATE`, `GOAL_RACE_TIME`.
 
-### 3. GitHub Automation (Headless Mode)
-To let the coach work 24/7 without your computer being on:
-1. Fork/Copy this repository.
-2. Go to **Settings > Secrets and variables > Actions**.
-3. Add the following **Secrets**:
-   - `GEMINI_API_KEY`: Your Google AI key.
-   - `STRAVA_CLIENT_ID`: Your Strava App ID.
-   - `STRAVA_CLIENT_SECRET`: Your Strava App Secret.
-   - `STRAVA_REFRESH_TOKEN`: Your permanent Strava refresh token.
-4. (Optional) Add **Secrets** for goals:
-   - `GOAL_RACE_TYPE`: e.g., "Marathon"
-   - `GOAL_RACE_DATE`: e.g., "2025-10-12"
-   - `GOAL_RACE_TIME`: e.g., "3:30:00"
+### 3. 🌐 Web UI Hosting (GitHub Pages)
+You can host the **Command Center** dashboard directly on GitHub:
+1. Go to your repository **Settings > Pages**.
+2. Under **Build and deployment > Source**, select **"GitHub Actions"**.
+3. Push a change to `main`. GitHub will automatically deploy the UI.
+4. Access it at: `https://<your-username>.github.io/<repo-name>/`
 
 ---
 
 ## 🎮 Operations Manual
 
 ### Surgical Mode
-To stay within the free tier, the system is designed to be "surgical."
-- **Scan:** It looks at your last 50 activities.
-- **Detect:** It finds the first activity that doesn't have the `[StravAI-Processed]` signature.
-- **Analyze:** It processes **only that one activity**.
-- **Result:** This ensures you only use 1 request per sync, allowing up to 20 syncs per day.
+To stay within the free tier, the system only processes **one activity per run**. This ensures you only use 1 request per sync, allowing up to 20 syncs per day.
 
 ### Manual Triggers
-- **Immediate Analysis:** If you just finished a run and want the analysis *now*, open the **Command Center** UI and click **SYNC_NOW**.
-- **GitHub Force Run:** Go to the **Actions** tab in your repo, select "StravAI Headless Sync," and click **Run workflow**.
+- **Web Dashboard:** Click **SYNC_NOW** in the Command Center.
+- **GitHub Force Run:** Go to **Actions** -> "StravAI Headless Sync" -> **Run workflow**.
 
-### Maintenance & Tokens
-- **Headless Mode:** **0 Maintenance.** The GitHub Action uses your `Refresh Token` to automatically generate a fresh `Access Token` every hour.
-- **Command Center (Browser):** Strava `Access Tokens` expire every 6 hours. If the UI shows an error, you may need to paste a fresh token from your Strava API settings.
+### 🔒 Security & Privacy
+- **Headless Mode:** Uses GitHub Secrets (Encrypted/Private). This is where your permanent Refresh Token lives.
+- **Web UI:** Since the UI is public, it **cannot** access your GitHub Secrets. You must paste a temporary **Access Token** into the UI manually. This token is stored only in your browser's `localStorage` and expires after 6 hours.
 
 ### Quota Management
-The system includes a **Circuit Breaker**. If Gemini returns a "Quota Exhausted" error:
-1. The **Command Center** will turn red and disable the "Start Daemon" button.
-2. The **Headless Sync** will terminate gracefully.
-3. Operation will resume automatically the next day when Google resets your quota.
+If Gemini returns a "Quota Exhausted" error, the system enters **Standby Mode**. Operation will resume automatically the next day when Google resets your quota.
 
 ---
 
