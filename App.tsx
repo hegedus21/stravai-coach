@@ -15,7 +15,6 @@ const App: React.FC = () => {
   const [isVerifying, setIsVerifying] = useState(false);
   const [showSetup, setShowSetup] = useState(!token);
   const [generatedIcon, setGeneratedIcon] = useState<string | null>(localStorage.getItem('custom_icon'));
-  const [isGeneratingIcon, setIsGeneratingIcon] = useState(false);
 
   const [goals, setGoals] = useState<GoalSettings>({
     raceType: localStorage.getItem('goal_race_type') || 'Marathon',
@@ -34,81 +33,6 @@ const App: React.FC = () => {
     const id = Math.random().toString(36).substr(2, 9);
     const time = new Date().toLocaleTimeString();
     setLogs(prev => [{ id, msg, type, time }, ...prev].slice(0, 100));
-  };
-
-  const downloadIconAsPNG = () => {
-    const canvas = document.createElement('canvas');
-    canvas.width = 512;
-    canvas.height = 512;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    if (generatedIcon) {
-      const img = new Image();
-      img.onload = () => {
-        ctx.drawImage(img, 0, 0, 512, 512);
-        const link = document.createElement('a');
-        link.download = 'stravai-icon.png';
-        link.href = canvas.toDataURL('image/png');
-        link.click();
-      };
-      img.src = generatedIcon;
-    } else {
-      const svg = document.querySelector('.brand-logo-svg');
-      if (!svg) return;
-      const xml = new XMLSerializer().serializeToString(svg);
-      const svg64 = btoa(xml);
-      const b64Start = 'data:image/svg+xml;base64,';
-      const image64 = b64Start + svg64;
-      const img = new Image();
-      img.onload = () => {
-        ctx.drawImage(img, 0, 0, 512, 512);
-        const link = document.createElement('a');
-        link.download = 'stravai-icon.png';
-        link.href = canvas.toDataURL('image/png');
-        link.click();
-      };
-      img.src = image64;
-    }
-  };
-
-  const downloadIconAsSVG = () => {
-    const svg = document.querySelector('.brand-logo-svg');
-    if (!svg) return;
-    const xml = new XMLSerializer().serializeToString(svg);
-    const blob = new Blob([xml], { type: 'image/svg+xml' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = 'stravai-icon.svg';
-    link.click();
-    URL.revokeObjectURL(url);
-  };
-
-  const generateBrandIcon = async () => {
-    setIsGeneratingIcon(true);
-    try {
-      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-      const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash-image',
-        contents: {
-          parts: [{ text: 'A minimalist high-tech athletic icon, futuristic running shoe combined with a brain circuit, flat design, orange and cyan colors, white background, professional logo style.' }],
-        },
-      });
-      
-      for (const part of response.candidates[0].content.parts) {
-        if (part.inlineData) {
-          const url = `data:image/png;base64,${part.inlineData.data}`;
-          setGeneratedIcon(url);
-          localStorage.setItem('custom_icon', url);
-          break;
-        }
-      }
-    } catch (err) {
-      addLog("Icon generation failed. Check API key.", "error");
-    } finally {
-      setIsGeneratingIcon(false);
-    }
   };
 
   useEffect(() => {
@@ -294,104 +218,72 @@ const App: React.FC = () => {
 
       {showSetup && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-          <div className="bg-slate-900 border border-slate-700 rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto p-8 shadow-2xl space-y-6">
-            <div className="flex justify-between items-start">
+          <div className="bg-slate-900 border border-slate-700 rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto p-8 shadow-2xl space-y-6 text-sm">
+            <div className="flex justify-between items-start border-b border-slate-800 pb-4">
               <div>
-                <h2 className="text-xl font-bold text-white mb-2 underline decoration-orange-500 underline-offset-4 uppercase tracking-tighter">System_Initialization</h2>
-                <p className="text-slate-400 text-sm">Configure your safe and free StravAI coaching service.</p>
+                <h2 className="text-xl font-bold text-white mb-1 uppercase tracking-tighter">Action_Fix_Applied_v1.2.4</h2>
+                <p className="text-slate-400 text-xs">We updated the sync engine to <code className="text-white">tsx</code> to fix the Import error.</p>
               </div>
               <button onClick={() => setShowSetup(false)} className="text-slate-500 hover:text-white transition-colors">✕</button>
             </div>
 
-            <div className="space-y-6 text-sm">
-              <section className="space-y-3">
-                <h3 className="text-cyan-400 font-bold uppercase text-xs tracking-widest">0. Brand Assets</h3>
-                <div className="flex items-center gap-4 bg-slate-950 p-4 rounded-lg border border-slate-800">
-                  <div className="w-16 h-16 rounded bg-slate-900 flex items-center justify-center border border-slate-700 overflow-hidden">
-                    {generatedIcon ? <img src={generatedIcon} alt="Icon" /> : <StravAILogo className="w-10 h-10" />}
-                  </div>
-                  <div className="flex-grow">
-                    <p className="text-xs text-slate-400 mb-2">Upload this to Strava API Settings.</p>
-                    <div className="flex gap-2">
-                      <button onClick={downloadIconAsPNG} className="bg-white/5 text-white border border-white/20 px-3 py-1.5 rounded text-[10px] font-bold uppercase hover:bg-white/10 transition-all">PNG</button>
-                      <button onClick={downloadIconAsSVG} className="bg-white/5 text-white border border-white/20 px-3 py-1.5 rounded text-[10px] font-bold uppercase hover:bg-white/10 transition-all">SVG</button>
-                    </div>
-                  </div>
-                </div>
-              </section>
+            <section className="space-y-4">
+              <h3 className="text-red-400 font-bold uppercase text-xs tracking-widest">CRITICAL: Update your code</h3>
+              <p className="text-slate-300">The error "Cannot use import statement outside a module" means Node was confused. We fixed this by switching the runner to use <code className="text-cyan-400">tsx</code>.</p>
+              
+              <div className="bg-slate-950 p-4 rounded border border-slate-800 space-y-2">
+                <p className="text-[10px] text-slate-500 uppercase font-bold">1. Check your package.json on GitHub:</p>
+                <code className="block bg-black p-2 rounded text-green-500 text-[10px] overflow-x-auto">
+                  "type": "module",<br/>
+                  "scripts": &#123; "sync": "npx tsx sync.ts" &#125;
+                </code>
+                
+                <p className="text-[10px] text-slate-500 uppercase font-bold mt-4">2. Check your .github/workflows/sync.yml:</p>
+                <code className="block bg-black p-2 rounded text-green-500 text-[10px] overflow-x-auto">
+                  - run: npm install<br/>
+                  - run: npm run sync
+                </code>
+              </div>
+            </section>
 
-              <section className="space-y-2">
-                <h3 className="text-green-400 font-bold uppercase text-xs tracking-widest">1. Fix Permissions (The OAuth Dance)</h3>
-                <p className="text-slate-300">If your token only has <code className="text-white">read</code> (not <code className="text-white">activity:read_all</code>), the automation will fail. Follow these steps:</p>
-                <div className="bg-slate-950 p-4 rounded border border-slate-800 space-y-3 text-[11px]">
-                  <p className="text-slate-400">1. Visit this URL (replace CLIENT_ID with yours):</p>
-                  <code className="block bg-black p-2 rounded text-amber-500 break-all overflow-hidden whitespace-pre-wrap">
-                    https://www.strava.com/oauth/authorize?client_id=[YOUR_CLIENT_ID]&response_type=code&redirect_uri=http://localhost&approval_prompt=force&scope=activity:read_all,activity:write
-                  </code>
-                  <p className="text-slate-400">2. Authorize, then copy the <code className="text-white">code=...</code> from the redirected URL.</p>
-                  <p className="text-slate-400">3. Exchange it for your permanent <code className="text-white">refresh_token</code> via Terminal/Curl:</p>
-                  <code className="block bg-black p-2 rounded text-cyan-500 overflow-x-auto whitespace-nowrap">
-                    curl -X POST https://www.strava.com/oauth/token -F client_id=[ID] -F client_secret=[SECRET] -F code=[CODE] -F grant_type=authorization_code
-                  </code>
-                </div>
-              </section>
+            <section className="space-y-2">
+              <h3 className="text-orange-400 font-bold uppercase text-xs tracking-widest">3. Relaunching</h3>
+              <p className="text-slate-400">Once those two files are updated on GitHub, go back to <strong>Actions</strong> and click <strong>Run Workflow</strong> again. The error will be gone.</p>
+            </section>
 
-              <section className="space-y-2">
-                <h3 className="text-orange-400 font-bold uppercase text-xs tracking-widest">2. Cloud Secrets (GitHub)</h3>
-                <p>Since you've added the secrets, ensure they match exactly:</p>
-                <div className="bg-slate-950 p-4 rounded border border-slate-800 space-y-2 text-[11px] font-mono">
-                  <div className="flex justify-between"><span>GEMINI_API_KEY</span><span className="text-green-500">SET</span></div>
-                  <div className="flex justify-between"><span>STRAVA_CLIENT_ID</span><span className="text-green-500">SET</span></div>
-                  <div className="flex justify-between"><span>STRAVA_CLIENT_SECRET</span><span className="text-green-500">SET</span></div>
-                  <div className="flex justify-between"><span>STRAVA_REFRESH_TOKEN</span><span className="text-green-500 font-bold underline">NEW_TOKEN_FROM_STEP_1</span></div>
-                </div>
-              </section>
-
-              <section className="space-y-2">
-                <h3 className="text-blue-400 font-bold uppercase text-xs tracking-widest">3. Final Launch Steps</h3>
-                <p>To start your AI coach immediately:</p>
-                <ol className="list-decimal list-inside space-y-2 text-slate-400">
-                  <li>Navigate to the <span className="text-white">Actions</span> tab in your GitHub repository.</li>
-                  <li>Select the <span className="text-white">"StravAI Headless Sync"</span> workflow on the left sidebar.</li>
-                  <li>Click the <span className="text-white">"Run workflow"</span> dropdown and hit the green button.</li>
-                  <li>Wait 2-3 minutes, then refresh your latest activity on Strava to see the AI analysis!</li>
-                </ol>
-              </section>
-
-              <section className="space-y-2">
-                <h3 className="text-amber-400 font-bold uppercase text-xs tracking-widest">4. Local Monitoring</h3>
-                <p>Paste your <span className="italic">Access Token</span> to monitor live updates in this console:</p>
-                <div className="flex gap-2">
-                  <input 
-                    type="password" 
-                    placeholder="access_token" 
-                    className="flex-grow bg-slate-950 border border-slate-800 rounded p-2 text-xs outline-none focus:border-orange-500"
-                    onChange={(e) => {
-                      setToken(e.target.value);
-                      localStorage.setItem('strava_token', e.target.value);
-                    }}
-                    value={token}
-                  />
-                  <button onClick={() => setShowSetup(false)} className="bg-orange-600 text-white px-4 py-2 rounded font-bold text-xs">SAVE</button>
-                </div>
-              </section>
-            </div>
+            <section className="space-y-2 pt-4 border-t border-slate-800">
+              <h3 className="text-blue-400 font-bold uppercase text-xs tracking-widest">Need to check locally?</h3>
+              <p className="text-slate-400 text-xs">If you want to run this monitor console, paste your Strava Access Token below.</p>
+              <div className="flex gap-2">
+                <input 
+                  type="password" 
+                  placeholder="Access Token..." 
+                  className="flex-grow bg-slate-950 border border-slate-800 rounded p-2 text-xs outline-none focus:border-orange-500"
+                  onChange={(e) => {
+                    setToken(e.target.value);
+                    localStorage.setItem('strava_token', e.target.value);
+                  }}
+                  value={token}
+                />
+                <button onClick={() => setShowSetup(false)} className="bg-orange-600 text-white px-4 py-2 rounded font-bold text-xs uppercase">Save_Local</button>
+              </div>
+            </section>
 
             <button 
               onClick={() => setShowSetup(false)}
               className="w-full py-3 bg-slate-800 hover:bg-slate-700 text-white rounded-lg font-bold transition-colors border border-slate-600 uppercase text-xs tracking-widest"
             >
-              DISMISS_GUIDE
+              DISMISS_AND_UPDATE_GITHUB
             </button>
           </div>
         </div>
       )}
 
       <div className="px-6 py-2 bg-slate-900 border-t border-slate-800 text-[9px] text-slate-600 flex justify-between uppercase">
-        <span>StravAI.OS v1.2.2 (PERMISSION_PATCH_APPLIED)</span>
+        <span>StravAI.OS v1.2.4 (ENGINE_FIX_LOADED)</span>
         <span className="flex items-center gap-2">
           <span className={`w-1.5 h-1.5 rounded-full ${token ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`}></span>
-          {token ? 'Local_Monitor_Online' : 'Secrets_Pending'}
+          {token ? 'Local_Monitor_Standby' : 'Waiting_for_Token'}
         </span>
       </div>
     </div>
