@@ -5,23 +5,27 @@ import { StravaActivity, AIAnalysis, GoalSettings } from "../types";
 export class GeminiCoachService {
   constructor() {}
 
+  private async sleep(ms: number) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+  }
+
   async analyzeActivity(
     activity: StravaActivity, 
     history: StravaActivity[], 
     goals: GoalSettings
   ): Promise<AIAnalysis> {
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-    
-    const now = new Date();
-    const thirtyDaysAgo = new Date(now.setDate(now.getDate() - 30));
-
-    // Split history for the prompt
-    const recent30Days = history.filter(h => new Date(h.start_date) > thirtyDaysAgo);
-    const deepBaseline = history.slice(0, 50); // Up to 50 activities for long-term profiling
+    const maxRetries = 3;
+    let attempt = 0;
 
     const historySummary = (list: StravaActivity[]) => list
       .map(h => `- ${h.type} (${new Date(h.start_date).toLocaleDateString()}): ${(h.distance/1000).toFixed(2)}km, Pace: ${((h.moving_time/60)/(h.distance/1000)).toFixed(2)} min/km, HR: ${h.average_heartrate || '?'}`)
       .join("\n");
+
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    
+    const recent30Days = history.filter(h => new Date(h.start_date) > thirtyDaysAgo);
+    const deepBaseline = history.slice(0, 50);
 
     const prompt = `
       ROLE: Professional Athletic Performance Coach.
@@ -50,38 +54,57 @@ export class GeminiCoachService {
       OUTPUT: JSON only.
     `;
 
-    const response = await ai.models.generateContent({
-      model: "gemini-3-flash-preview",
-      contents: prompt,
-      config: {
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: Type.OBJECT,
-          properties: {
-            summary: { type: Type.STRING },
-            activityClassification: { type: Type.STRING, enum: ['Easy', 'Tempo', 'Long Run', 'Intervals', 'Threshold', 'Other'] },
-            effectivenessScore: { type: Type.NUMBER },
-            pros: { type: Type.ARRAY, items: { type: Type.STRING } },
-            cons: { type: Type.ARRAY, items: { type: Type.STRING } },
-            trendImpact: { type: Type.STRING },
-            nextTrainingSuggestion: {
+    while (attempt < maxRetries) {
+      try {
+        const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+        const response = await ai.models.generateContent({
+          model: "gemini-3-flash-preview",
+          contents: prompt,
+          config: {
+            responseMimeType: "application/json",
+            responseSchema: {
               type: Type.OBJECT,
               properties: {
-                type: { type: Type.STRING },
-                distance: { type: Type.STRING },
-                duration: { type: Type.STRING },
-                description: { type: Type.STRING },
-                targetMetrics: { type: Type.STRING }
+                summary: { type: Type.STRING },
+                activityClassification: { type: Type.STRING, enum: ['Easy', 'Tempo', 'Long Run', 'Intervals', 'Threshold', 'Other'] },
+                effectivenessScore: { type: Type.NUMBER },
+                pros: { type: Type.ARRAY, items: { type: Type.STRING } },
+                cons: { type: Type.ARRAY, items: { type: Type.STRING } },
+                trendImpact: { type: Type.STRING },
+                nextTrainingSuggestion: {
+                  type: Type.OBJECT,
+                  properties: {
+                    type: { type: Type.STRING },
+                    distance: { type: Type.STRING },
+                    duration: { type: Type.STRING },
+                    description: { type: Type.STRING },
+                    targetMetrics: { type: Type.STRING }
+                  },
+                  required: ["type", "distance", "duration", "description", "targetMetrics"]
+                }
               },
-              required: ["type", "distance", "duration", "description", "targetMetrics"]
+              required: ["summary", "activityClassification", "effectivenessScore", "pros", "cons", "trendImpact", "nextTrainingSuggestion"]
             }
-          },
-          required: ["summary", "activityClassification", "effectivenessScore", "pros", "cons", "trendImpact", "nextTrainingSuggestion"]
-        }
-      }
-    });
+          }
+        });
 
-    return JSON.parse(response.text || "{}");
+        const text = response.text;
+        if (!text) throw new Error("Empty response from Gemini");
+        return JSON.parse(text);
+      } catch (err: any) {
+        attempt++;
+        const isTransient = err.status === 503 || err.status === 429 || err.message?.includes("overloaded");
+        
+        if (isTransient && attempt < maxRetries) {
+          const delay = Math.pow(2, attempt) * 2000;
+          console.warn(`Gemini API busy (Attempt ${attempt}/${maxRetries}). Retrying in ${delay}ms...`);
+          await this.sleep(delay);
+          continue;
+        }
+        throw err;
+      }
+    }
+    throw new Error("Failed to get analysis after multiple retries.");
   }
 
   formatDescription(analysis: AIAnalysis): string {
