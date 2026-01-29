@@ -2,6 +2,13 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { StravaActivity, AIAnalysis, GoalSettings } from "../types";
 
+export class QuotaExhaustedError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "QuotaExhaustedError";
+  }
+}
+
 export class GeminiCoachService {
   constructor() {}
 
@@ -14,7 +21,7 @@ export class GeminiCoachService {
     history: StravaActivity[], 
     goals: GoalSettings
   ): Promise<AIAnalysis> {
-    const maxRetries = 3;
+    const maxRetries = 5;
     let attempt = 0;
 
     const historySummary = (list: StravaActivity[]) => list
@@ -44,12 +51,12 @@ export class GeminiCoachService {
       ${historySummary(deepBaseline)}
 
       TASK:
-      1. Classify: Easy, Tempo, Long Run, Intervals, Threshold.
-      2. Performance Summary: 2-3 sentences analyzing efficiency.
-      3. Trend Assessment: How does this fit into the last 30 days? Are we overtraining or peaking?
-      4. Long-term Progress: Based on the baseline, has the aerobic threshold improved?
-      5. Goal Alignment: Score 1-100 how effectively this session serves the ${goals.raceType} goal.
-      6. Next Prescription: Recommend the specific next workout.
+      1. Classify the workout type.
+      2. Provide a summary analysis (2-3 sentences).
+      3. Assess current training trends.
+      4. Compare against long-term baseline.
+      5. Score effectiveness (1-100).
+      6. Prescribe the next workout.
 
       OUTPUT: JSON only.
     `;
@@ -93,18 +100,33 @@ export class GeminiCoachService {
         return JSON.parse(text);
       } catch (err: any) {
         attempt++;
-        const isTransient = err.status === 503 || err.status === 429 || err.message?.includes("overloaded");
+        const errStr = err.message?.toLowerCase() || "";
+        
+        // Check for Hard Quota Exceeded (Daily Limit)
+        if (errStr.includes("quota exceeded") || errStr.includes("resource_exhausted")) {
+          console.error("CRITICAL: Gemini Daily Quota Exceeded. Circuit breaker active.");
+          throw new QuotaExhaustedError("Daily API Quota Exceeded. Please try again tomorrow.");
+        }
+
+        const isTransient = err.status === 503 || 
+                          err.status === 429 || 
+                          errStr.includes("overloaded") || 
+                          errStr.includes("unavailable") ||
+                          errStr.includes("busy");
         
         if (isTransient && attempt < maxRetries) {
-          const delay = Math.pow(2, attempt) * 2000;
-          console.warn(`Gemini API busy (Attempt ${attempt}/${maxRetries}). Retrying in ${delay}ms...`);
-          await this.sleep(delay);
+          const retryMatch = err.message?.match(/retry in ([\d.]+)s/i);
+          const delaySeconds = retryMatch ? parseFloat(retryMatch[1]) + 1 : Math.pow(2, attempt) * 3;
+          const delayMs = Math.min(delaySeconds * 1000, 60000);
+          
+          console.warn(`[Gemini API] Temporary Busy. Retry ${attempt}/${maxRetries} in ${delayMs}ms...`);
+          await this.sleep(delayMs);
           continue;
         }
         throw err;
       }
     }
-    throw new Error("Failed to get analysis after multiple retries.");
+    throw new Error("Maximum retries reached for Gemini API.");
   }
 
   formatDescription(analysis: AIAnalysis): string {
