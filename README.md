@@ -24,6 +24,19 @@ This service is designed to run at **zero cost** by utilizing the following free
 
 ---
 
+## 🔒 Security & Privacy FAQ
+
+### "If I make this repo public, are my keys safe?"
+**Yes.** GitHub Secrets (Settings > Secrets > Actions) are encrypted. No one can see them—not even you after saving. They are only injected into the background sync process and are hidden in all logs.
+
+### "Can strangers change my code?"
+**No.** Public means "Read-Only" for the world. Only you have "Write" access. Others can only suggest changes via Pull Requests, which you must approve.
+
+### "Is my Strava data private?"
+The **Headless Sync** runs privately in GitHub's cloud. The **Web UI** only shows your data in *your* browser because you paste *your* token there. Other people visiting your GitHub Pages URL will see an empty dashboard because they don't have your token.
+
+---
+
 ## 🚀 Setup Guide
 
 ### 1. Strava API Configuration
@@ -55,13 +68,6 @@ To stay within the free tier, the system only processes **one activity per run**
 ### Manual Triggers
 - **Web Dashboard:** Click **SYNC_NOW** in the Command Center.
 - **GitHub Force Run:** Go to **Actions** -> "StravAI Headless Sync" -> **Run workflow**.
-
-### 🔒 Security & Privacy
-- **Headless Mode:** Uses GitHub Secrets (Encrypted/Private). This is where your permanent Refresh Token lives.
-- **Web UI:** Since the UI is public, it **cannot** access your GitHub Secrets. You must paste a temporary **Access Token** into the UI manually. This token is stored only in your browser's `localStorage` and expires after 6 hours.
-
-### Quota Management
-If Gemini returns a "Quota Exhausted" error, the system enters **Standby Mode**. Operation will resume automatically the next day when Google resets your quota.
 
 ---
 
