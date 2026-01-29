@@ -24,19 +24,6 @@ This service is designed to run at **zero cost** by utilizing the following free
 
 ---
 
-## 🔒 Security & Privacy FAQ
-
-### "If I make this repo public, are my keys safe?"
-**Yes.** GitHub Secrets (Settings > Secrets > Actions) are encrypted. No one can see them—not even you after saving. They are only injected into the background sync process and are hidden in all logs.
-
-### "Can strangers change my code?"
-**No.** Public means "Read-Only" for the world. Only you have "Write" access. Others can only suggest changes via Pull Requests, which you must approve.
-
-### "Is my Strava data private?"
-The **Headless Sync** runs privately in GitHub's cloud. The **Web UI** only shows your data in *your* browser because you paste *your* token there. Other people visiting your GitHub Pages URL will see an empty dashboard because they don't have your token.
-
----
-
 ## 🚀 Setup Guide
 
 ### 1. Strava API Configuration
@@ -52,32 +39,33 @@ This runs the "Engine" in the cloud every hour:
    - Optional: `GOAL_RACE_TYPE`, `GOAL_RACE_DATE`, `GOAL_RACE_TIME`.
 
 ### 3. 🌐 Web UI Hosting (GitHub Pages)
-You can host the **Command Center** dashboard directly on GitHub:
-1. Go to your repository **Settings > Pages**.
-2. Under **Build and deployment > Source**, select **"GitHub Actions"**.
-3. Push a change to `main`. GitHub will automatically deploy the UI.
-4. Access it at: `https://<your-username>.github.io/<repo-name>/`
+1. Ensure your repository is **Public**.
+2. Go to your repository **Settings > Pages**.
+3. Under **Build and deployment > Source**, select **"GitHub Actions"**.
+4. **Important:** Do NOT select a template like "Static HTML". The code already contains a custom workflow in `.github/workflows/deploy.yml`.
+5. Push your code to the `main` branch. GitHub will automatically build and deploy the UI.
+6. Access it at: `https://<your-username>.github.io/<repo-name>/`
 
 ---
 
-## 🎮 Operations Manual
+## 🔒 Security & Privacy FAQ
 
-### Surgical Mode
-To stay within the free tier, the system only processes **one activity per run**. This ensures you only use 1 request per sync, allowing up to 20 syncs per day.
+### "If I make this repo public, are my keys safe?"
+**Yes.** GitHub Secrets are encrypted. No one can see them. They are only injected into the background sync process and are hidden in all logs.
 
-### Manual Triggers
-- **Web Dashboard:** Click **SYNC_NOW** in the Command Center.
-- **GitHub Force Run:** Go to **Actions** -> "StravAI Headless Sync" -> **Run workflow**.
+### "Can strangers change my code?"
+**No.** Public means "Read-Only" for the world. Only you have "Write" access.
+
+### "Is my Strava data private?"
+The **Headless Sync** runs privately in GitHub's cloud. The **Web UI** only shows your data in *your* browser because you paste *your* token there. Other people visiting your URL will see an empty dashboard.
 
 ---
 
 ## 🛠 Tech Stack
 - **AI:** Google Gemini API (`@google/genai`)
-- **Frontend:** React, Tailwind CSS (Command Center UI)
+- **Frontend:** React, Tailwind CSS, Vite
 - **Backend:** TypeScript, GitHub Actions (Headless Sync)
 - **Data:** Strava API v3
-
-## Idea by @hegedus21
 
 ---
 
