@@ -53,7 +53,8 @@ async function runSync() {
     } catch (innerError: any) {
       if (innerError instanceof QuotaExhaustedError) {
         console.error("STOPPING SYNC: Gemini Free Tier Quota Exhausted for today.");
-        process.exit(0); // Exit gracefully as this is a known limit
+        // Fixed: Use type assertion to avoid TypeScript error in environments where 'process' type is missing 'exit'
+        (process as any).exit(0); // Exit gracefully as this is a known limit
       }
       console.error(`Failed to analyze activity ${activityToProcess.id}: ${innerError.message}`);
     }
@@ -61,7 +62,8 @@ async function runSync() {
     console.log(`--- Sync Cycle Complete ---`);
   } catch (error) {
     console.error("Critical Sync Failure:", error);
-    process.exit(1);
+    // Fixed: Use type assertion to avoid TypeScript error in environments where 'process' type is missing 'exit'
+    (process as any).exit(1);
   }
 }
 
