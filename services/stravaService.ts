@@ -9,18 +9,28 @@ export class StravaService {
   }
 
   async refreshAuth(): Promise<void> {
-    // 1. Try to get credentials from localStorage (Browser context)
-    // 2. Fall back to process.env (Node/Sync context)
-    const clientId = localStorage.getItem('strava_client_id') || process.env.STRAVA_CLIENT_ID;
-    const clientSecret = localStorage.getItem('strava_client_secret') || process.env.STRAVA_CLIENT_SECRET;
-    const refreshToken = localStorage.getItem('strava_refresh_token') || process.env.STRAVA_REFRESH_TOKEN;
+    // Safely attempt to get credentials from localStorage if in a browser, 
+    // or from environment variables if in Node.js
+    let clientId: string | undefined | null;
+    let clientSecret: string | undefined | null;
+    let refreshToken: string | undefined | null;
+
+    if (typeof localStorage !== 'undefined') {
+      clientId = localStorage.getItem('strava_client_id');
+      clientSecret = localStorage.getItem('strava_client_secret');
+      refreshToken = localStorage.getItem('strava_refresh_token');
+    }
+
+    clientId = clientId || process.env.STRAVA_CLIENT_ID;
+    clientSecret = clientSecret || process.env.STRAVA_CLIENT_SECRET;
+    refreshToken = refreshToken || process.env.STRAVA_REFRESH_TOKEN;
 
     if (!clientId || !clientSecret || !refreshToken) {
-      // If we already have an accessToken (maybe pasted manually), we can proceed
+      // If we already have an accessToken (maybe pasted manually in UI), we can proceed
       if (this.accessToken) {
         return;
       }
-      throw new Error("Missing Strava OAuth credentials. Please enter your Client ID, Secret, and Refresh Token in the Setup Console.");
+      throw new Error("Missing Strava OAuth credentials. Please enter your Client ID, Secret, and Refresh Token in the Setup Console or set environment variables.");
     }
 
     try {
@@ -49,8 +59,14 @@ export class StravaService {
   }
 
   async getRecentActivities(perPage: number = 10): Promise<StravaActivity[]> {
-    // Always attempt refresh if we have permanent credentials
-    const hasPermAuth = !!(localStorage.getItem('strava_refresh_token') || process.env.STRAVA_REFRESH_TOKEN);
+    // Determine if we have credentials to attempt a refresh
+    const hasLocalStorage = typeof localStorage !== 'undefined';
+    const hasPermAuth = !!(
+      (hasLocalStorage && localStorage.getItem('strava_refresh_token')) || 
+      process.env.STRAVA_REFRESH_TOKEN
+    );
+
+    // Always attempt refresh if we have permanent credentials or no token yet
     if (!this.accessToken || hasPermAuth) {
       await this.refreshAuth();
     }
