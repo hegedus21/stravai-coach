@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import React from 'react';
 import { StravaService } from './services/stravaService';
 import { GeminiCoachService, QuotaExhaustedError } from './services/geminiService';
-import { GoalSettings } from './types';
+import { GoalSettings, StravaActivity } from './types';
 import { StravAILogo } from './components/Icon';
 
 const SYNC_INTERVAL_MS = 60000;
@@ -58,28 +58,38 @@ const App: React.FC = () => {
     if (quotaExhausted) return addLog("Cannot verify: Quota exhausted.", "error");
     
     setIsVerifying(true);
-    addLog("Manual trigger: forcing re-analysis of latest activity...", "info");
+    addLog("Manual trigger: scanning for unprocessed runs in the last 24h...", "info");
     
     try {
-      // In UI context, we set the manual token if provided
       if (token) stravaService.setToken(token);
       
-      const activities = await stravaService.getRecentActivities(10);
+      const activities = await stravaService.getRecentActivities(20);
       const runs = activities.filter(a => a.type === 'Run');
-      if (runs.length === 0) throw new Error("No recent runs found to process.");
-      
-      const latest = runs[0];
-      addLog(`Consulting Coach Gemini for "${latest.name}"...`, "ai");
-      
-      const analysis = await coachService.analyzeActivity(latest, runs.slice(1), goals);
-      const formattedReport = coachService.formatDescription(analysis);
-      
-      const cleanDesc = (latest.description || "").split("################################")[0].trim();
-      const newDescription = `${cleanDesc}\n\n${formattedReport}`;
+      const signature = "[StravAI-Processed]";
+      const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
 
-      await stravaService.updateActivity(latest.id, { description: newDescription });
-      addLog(`✅ Manual Sync Successful! Activity ${latest.id} updated.`, "success");
-      setStats(s => ({ ...s, updated: s.updated + 1 }));
+      const targets = runs.filter(a => new Date(a.start_date) > twentyFourHoursAgo && !a.description?.includes(signature));
+
+      if (targets.length === 0) {
+        addLog("No unprocessed runs found from the last 24 hours.", "warning");
+        return;
+      }
+
+      addLog(`Found ${targets.length} target(s). Commencing analysis...`, "info");
+
+      for (const target of targets) {
+        addLog(`Consulting Coach Gemini for "${target.name}"...`, "ai");
+        const history = runs.filter(a => a.id !== target.id);
+        const analysis = await coachService.analyzeActivity(target, history, goals);
+        const formattedReport = coachService.formatDescription(analysis);
+        
+        const cleanDesc = (target.description || "").split("################################")[0].trim();
+        const newDescription = `${cleanDesc}\n\n${formattedReport}`;
+
+        await stravaService.updateActivity(target.id, { description: newDescription });
+        addLog(`✅ Manual Sync Successful: ${target.name} updated.`, "success");
+        setStats(s => ({ ...s, updated: s.updated + 1 }));
+      }
     } catch (err: any) {
       if (err instanceof QuotaExhaustedError) {
         handleQuotaError();
@@ -95,7 +105,7 @@ const App: React.FC = () => {
     const hasAuth = token || (clientId && clientSecret && refreshToken);
     if (!hasAuth || quotaExhausted) return;
     
-    addLog(`Pulse check: scanning history...`, "info");
+    addLog(`Pulse check: scanning 24h window...`, "info");
     if (token) stravaService.setToken(token);
 
     try {
@@ -103,22 +113,27 @@ const App: React.FC = () => {
       setStats(s => ({ ...s, checked: s.checked + 1, lastRun: new Date().toLocaleTimeString() }));
 
       const runs = activities.filter(a => a.type === 'Run');
-      const target = runs.find(a => !a.description?.includes("[StravAI-Processed]"));
+      const signature = "[StravAI-Processed]";
+      const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
 
-      if (target) {
-        addLog(`New run detected: "${target.name}". Executing surgical analysis...`, "ai");
-        const history = runs.filter(a => a.id !== target.id);
-        const analysis = await coachService.analyzeActivity(target, history, goals);
-        const report = coachService.formatDescription(analysis);
-        
-        await stravaService.updateActivity(target.id, { 
-          description: target.description ? `${target.description}\n\n${report}` : report 
-        });
-        
-        addLog(`✅ Surgical Sync Complete: ${target.name} updated.`, "success");
-        setStats(s => ({ ...s, updated: s.updated + 1 }));
+      const targets = runs.filter(a => new Date(a.start_date) > twentyFourHoursAgo && !a.description?.includes(signature));
+
+      if (targets.length > 0) {
+        addLog(`Batch found: ${targets.length} new run(s). Processing...`, "ai");
+        for (const target of targets) {
+          const history = runs.filter(a => a.id !== target.id);
+          const analysis = await coachService.analyzeActivity(target, history, goals);
+          const report = coachService.formatDescription(analysis);
+          
+          await stravaService.updateActivity(target.id, { 
+            description: target.description ? `${target.description}\n\n${report}` : report 
+          });
+          
+          addLog(`✅ Sync Complete: ${target.name} updated.`, "success");
+          setStats(s => ({ ...s, updated: s.updated + 1 }));
+        }
       } else {
-        addLog("Status: Up to date. No new activities found.", "info");
+        addLog("Status: Up to date (No unprocessed runs in 24h).", "info");
       }
     } catch (err: any) {
       if (err instanceof QuotaExhaustedError) {
@@ -308,16 +323,16 @@ const App: React.FC = () => {
                 <h3 className="text-blue-400 font-bold uppercase text-xs tracking-widest mb-4">Operational Status</h3>
                 <ul className="text-[10px] space-y-3 text-slate-400">
                   <li className="flex gap-2">
-                    <span className="text-blue-400 font-bold">Surgical_Mode:</span>
-                    <span>The system only analyzes your LATEST run to protect your free-tier AI quota (20/day).</span>
+                    <span className="text-blue-400 font-bold">24h_Window:</span>
+                    <span>The system automatically scans your activities from the last 24 hours.</span>
                   </li>
                   <li className="flex gap-2">
                     <span className="text-blue-400 font-bold">Cloud_Daemon:</span>
-                    <span>Your GitHub Action syncs automatically every hour. This dashboard is for manual control and real-time logs.</span>
+                    <span>Your GitHub Action syncs automatically once a day (02:00 UTC). This dashboard provides manual over-the-air control.</span>
                   </li>
                   <li className="flex gap-2">
                     <span className="text-blue-400 font-bold">Manual_Sync:</span>
-                    <span>The "SYNC_NOW" button forces a refresh of the most recent activity in your feed.</span>
+                    <span>The "SYNC_NOW" button forces an immediate scan for unprocessed runs from the last 24 hours.</span>
                   </li>
                   <li className="flex gap-2 border-t border-slate-800 pt-3">
                     <span className="text-slate-500 italic">Credentials are stored locally in your browser and never sent to our servers.</span>
@@ -337,7 +352,7 @@ const App: React.FC = () => {
       )}
 
       <div className="px-6 py-2 bg-slate-900 border-t border-slate-800 text-[9px] text-slate-600 flex justify-between uppercase">
-        <span>StravAI.OS v1.5.1 (SURGICAL_DAEMON_READY)</span>
+        <span>StravAI.OS v1.5.2 (24H_BATCH_DAEMON_READY)</span>
         <div className="flex items-center gap-6">
            <span className="flex items-center gap-2">
              <span className="text-slate-500">AUTH:</span>
