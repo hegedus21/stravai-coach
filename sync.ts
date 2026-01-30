@@ -1,10 +1,9 @@
-
 import { StravaService } from './services/stravaService';
 import { GeminiCoachService, QuotaExhaustedError } from './services/geminiService';
-import { GoalSettings } from './types';
+import { GoalSettings, StravaActivity } from './types';
 
 async function runSync() {
-  console.log("--- Starting StravAI Surgical Sync ---");
+  console.log("--- Starting StravAI Daily Batch Sync ---");
   
   const goals: GoalSettings = {
     raceType: process.env.GOAL_RACE_TYPE || "Marathon",
@@ -19,50 +18,59 @@ async function runSync() {
     await strava.refreshAuth();
     console.log(`Target Goal: ${goals.raceType} | Date: ${goals.raceDate}`);
     
-    console.log("Fetching athlete history for baseline context...");
-    const history = await strava.getHistoryForBaseline(50);
+    console.log("Scanning recent history...");
+    const history = await strava.getHistoryForBaseline(30);
     const runs = history.filter(a => a.type === 'Run');
 
     if (runs.length === 0) {
-      console.log("No runs found in history.");
+      console.log("No runs found in recent history.");
       return;
     }
 
     const signature = "[StravAI-Processed]";
-    const activityToProcess = runs.find(a => !a.description?.includes(signature));
+    const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
 
-    if (!activityToProcess) {
-      console.log("All recent activities are already analyzed. Nothing to do.");
+    const activitiesToProcess = runs.filter(a => {
+      const activityDate = new Date(a.start_date);
+      const isRecent = activityDate > twentyFourHoursAgo;
+      const isUnprocessed = !a.description?.includes(signature);
+      return isRecent && isUnprocessed;
+    });
+
+    if (activitiesToProcess.length === 0) {
+      console.log("No new unprocessed runs found from the last 24 hours.");
       return;
     }
 
-    console.log(`Target Found: "${activityToProcess.name}" (${new Date(activityToProcess.start_date).toLocaleDateString()})`);
-    const contextHistory = runs.filter(a => a.id !== activityToProcess.id);
-    
-    try {
-      console.log("Consulting Coach Gemini...");
-      const analysis = await coach.analyzeActivity(activityToProcess, contextHistory, goals);
-      const formattedReport = coach.formatDescription(analysis);
+    console.log(`Found ${activitiesToProcess.length} activities to process.`);
 
-      const newDescription = activityToProcess.description 
-        ? `${activityToProcess.description}\n\n${formattedReport}`
-        : formattedReport;
+    for (const activity of activitiesToProcess) {
+      console.log(`\nProcessing: "${activity.name}" (${new Date(activity.start_date).toLocaleString()})`);
+      const contextHistory = runs.filter(a => a.id !== activity.id);
+      
+      try {
+        console.log("Consulting Coach Gemini...");
+        const analysis = await coach.analyzeActivity(activity, contextHistory, goals);
+        const formattedReport = coach.formatDescription(analysis);
 
-      await strava.updateActivity(activityToProcess.id, { description: newDescription });
-      console.log(`✅ Success: Activity ${activityToProcess.id} updated with AI analysis.`);
-    } catch (innerError: any) {
-      if (innerError instanceof QuotaExhaustedError) {
-        console.error("STOPPING SYNC: Gemini Free Tier Quota Exhausted for today.");
-        // Fixed: Use type assertion to avoid TypeScript error in environments where 'process' type is missing 'exit'
-        (process as any).exit(0); // Exit gracefully as this is a known limit
+        const newDescription = activity.description 
+          ? `${activity.description}\n\n${formattedReport}`
+          : formattedReport;
+
+        await strava.updateActivity(activity.id, { description: newDescription });
+        console.log(`✅ Success: Activity ${activity.id} updated.`);
+      } catch (innerError: any) {
+        if (innerError instanceof QuotaExhaustedError) {
+          console.error("CRITICAL: Gemini Free Tier Quota Exhausted. Aborting batch.");
+          (process as any).exit(0);
+        }
+        console.error(`Failed to analyze activity ${activity.id}: ${innerError.message}`);
       }
-      console.error(`Failed to analyze activity ${activityToProcess.id}: ${innerError.message}`);
     }
 
-    console.log(`--- Sync Cycle Complete ---`);
+    console.log(`\n--- Batch Sync Cycle Complete ---`);
   } catch (error) {
     console.error("Critical Sync Failure:", error);
-    // Fixed: Use type assertion to avoid TypeScript error in environments where 'process' type is missing 'exit'
     (process as any).exit(1);
   }
 }
